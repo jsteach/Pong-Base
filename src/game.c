@@ -21,7 +21,9 @@ typedef struct paddle {
 } paddle_t;
 
 static ball_t ball;
-static int ball_max_speed = 50;
+#define MAX_BALL_SPEED 50
+const int ball_max_speed = MAX_BALL_SPEED;
+const float paddle_speed = MAX_BALL_SPEED * 5;
 static paddle_t paddle[2];
 int score[] = {0,0};
 
@@ -164,7 +166,6 @@ void move_paddle_ai(float dt, int paddle_id) {
 
 	int center = paddle[paddle_id].y + paddle[paddle_id].h * 0.5f;
 	int screen_center = GetScreenHeight() - paddle[paddle_id].h * 0.5f;
-    float paddle_speed = ball_max_speed * 5;
     SetRandomSeed(time(0));
     int r_dir = GetRandomValue(1,4);
     int dir = ball.dy > 0 ? r_dir  : -r_dir; 
