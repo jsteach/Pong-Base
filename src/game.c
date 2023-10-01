@@ -1,0 +1,318 @@
+#include "game.h"
+#include <raylib.h>
+#include "raymath.h"
+#include <float.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
+
+static size_t factor = 60;
+typedef struct ball_s {
+
+	float x, y; 
+	int w,h; 
+	int dx, dy;
+} ball_t;
+
+typedef struct paddle {
+    float x,y;
+	int w,h;
+} paddle_t;
+
+static ball_t ball;
+static int ball_max_speed = 50;
+static paddle_t paddle[2];
+int score[] = {0,0};
+
+static Vector2 paddle_dims = {.x=10,.y=40};
+
+#define REWARD_CLOSE +10
+#define REWARD_FAR -10
+
+int check_collision(ball_t a, paddle_t b) {
+	if (a.x > b.x + b.w) {
+		return 0;
+	}
+	if (a.x + a.w < b.x) {
+		return 0;
+	}
+	if (a.y > b.y + b.h) {
+		return 0;
+	}
+	if (a.y + a.h < b.y) {
+		return 0;
+	}
+
+	return 1;
+}
+
+void move_ball(float dt) {
+	int w = GetScreenWidth();
+    int h = GetScreenHeight();
+
+	/* Move the ball by its motion vector. */
+	ball.x += ball.dx * ball_max_speed * dt;
+	ball.y += ball.dy * ball_max_speed * dt;
+	
+	/* Turn the ball around if it hits the edge of the screen. */
+	if (ball.x < 0) {
+		
+		score[1] += 1;
+		game_restart();
+	}
+
+	if (ball.x > w - ball.w) { 
+		
+		score[0] += 1;
+		game_restart();
+	}
+
+	if (ball.y < 0 || ball.y > h - ball.h) {
+		
+		ball.dy = -ball.dy;
+	}
+
+	//check for collision with the paddle
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		
+		int c = check_collision(ball, paddle[i]); 
+
+		//collision detected	
+		if (c == 1) {
+			int max_Xspeed = 20;
+			//ball moving left
+			if (ball.dx < 0 && ball.dx > -max_Xspeed) {
+					
+				ball.dx -= 1;
+
+			//ball moving right
+			} else if(ball.dx < max_Xspeed){
+					
+				ball.dx += 1;
+			}
+			
+			//change ball direction
+			ball.dx = -ball.dx;
+			
+			//change ball angle based on where on the paddle it hit
+			int hit_pos = (paddle[i].y + paddle[i].h) - ball.y;
+
+			if (hit_pos >= 0 && hit_pos < 7) {
+				ball.dy = 4;
+			}
+
+			if (hit_pos >= 7 && hit_pos < 14) {
+				ball.dy = 3;
+			}
+			
+			if (hit_pos >= 14 && hit_pos < 21) {
+				ball.dy = 2;
+			}
+
+			if (hit_pos >= 21 && hit_pos < 28) {
+				ball.dy = 1;
+			}
+
+			if (hit_pos >= 28 && hit_pos < 32) {
+				ball.dy = 0;
+			}
+
+			if (hit_pos >= 32 && hit_pos < 39) {
+				ball.dy = -1;
+			}
+
+			if (hit_pos >= 39 && hit_pos < 46) {
+				ball.dy = -2;
+			}
+
+			if (hit_pos >= 46 && hit_pos < 53) {
+				ball.dy = -3;
+			}
+
+			if (hit_pos >= 53 && hit_pos <= 60) {
+				ball.dy = -4;
+			}
+
+            ball.dy += -1 + GetRandomValue(0,1) * 2; 
+
+			//ball moving right
+			if (ball.dx > 0) {
+
+				//teleport ball to avoid mutli collision glitch
+				if (ball.x < paddle_dims.x * 4) {
+				
+					ball.x = paddle_dims.x * 4;
+				}
+				
+			//ball moving left
+			} else {
+				
+				//teleport ball to avoid mutli collision glitch
+				if (ball.x > w - paddle_dims.x * 4) {
+				
+					ball.x = w - paddle_dims.x * 4;
+				}
+			}
+		}
+	}
+}
+
+void move_paddle_ai(float dt, int paddle_id) {
+
+	int center = paddle[paddle_id].y + paddle[paddle_id].h * 0.5f;
+	int screen_center = GetScreenHeight() - paddle[paddle_id].h * 0.5f;
+    float paddle_speed = ball_max_speed * 5;
+    SetRandomSeed(time(0));
+    int r_dir = GetRandomValue(1,4);
+    int dir = ball.dy > 0 ? r_dir  : -r_dir; 
+    if(dir < 0 && paddle[paddle_id].y < ball.y){
+        dir = r_dir;
+    }
+
+    if(dir > 0 && paddle[paddle_id].y > ball.y){
+        dir = -r_dir;
+    }
+
+    paddle[paddle_id].y += dir * paddle_speed * dt;
+    if(paddle[paddle_id].y > GetScreenHeight() - paddle[paddle_id].h){
+        paddle[paddle_id].y = GetScreenHeight() - paddle[paddle_id].h;
+    }
+    if(paddle[paddle_id].y < 0){
+        paddle[paddle_id].y = 0;
+    }
+}
+
+
+void game_init(void){
+    
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    InitWindow(factor*16, factor*9, "Pong");
+    game_restart();
+
+}
+void game_deinit(void){
+    CloseAudioDevice();
+    CloseWindow();
+}
+static size_t gridsize = 64; 
+static double lastTime = 0.0;
+#define NUM_GRID_SQUARES 8
+void game_draw(void){
+
+    float dt = GetTime() - lastTime;
+    lastTime = GetTime();
+    move_paddle_ai(dt,0);
+    move_paddle_ai(dt,1);
+    move_ball(dt);
+
+    ClearBackground(GetColor(0x000000FF));
+    BeginDrawing();
+    int w = GetRenderWidth();
+    int h = GetRenderHeight();
+    for(int i = 0; i < 2;++i){
+        DrawRectangle(paddle[i].x,paddle[i].y,paddle[i].w,paddle[i].h,GetColor(0xFFFFFFFF));
+    }
+
+    DrawRectangle(ball.x,ball.y,ball.w,ball.h,GetColor(0xFFFFFFFF));
+    char s_text[256] = {0};
+    int size = snprintf(s_text,256,"Score: AI %d || Player %d",score[0],score[1]);
+    int fontSize = 24;
+    static float lastMaxOffsetX = 0.0f;
+    DrawText(s_text,w* 0.5f - lastMaxOffsetX,0,fontSize,GetColor(0xFF0000FF));
+    snprintf(s_text,256,"Motion: x %.2f y %0.2f DeltaTime: %f",ball.dx * ball_max_speed * dt,ball.dy * ball_max_speed * dt,dt);
+    DrawText(s_text,0,100,fontSize,GetColor(0xFF0000FF));
+
+    //Calculate text pos to have it centered
+    Font font = GetFontDefault();  
+    float textOffsetX = 0.0f;
+    float scaleFactor = fontSize/font.baseSize;
+    int defaultFontSize = 10;
+    int spacing = fontSize/defaultFontSize;
+    for (int i = 0; i < size;){
+        int codepointByteCount = 0;
+        int codepoint = GetCodepointNext(&s_text[i], &codepointByteCount);
+        int index = GetGlyphIndex(font, codepoint);
+        if (codepoint == 0x3f) codepointByteCount = 1;
+        if (codepoint == '\n'){
+            break;
+        }
+        else{
+            if (font.glyphs[index].advanceX == 0) textOffsetX += ((float)font.recs[index].width*scaleFactor + spacing);
+            else textOffsetX += ((float)font.glyphs[index].advanceX*scaleFactor + spacing);
+        }
+        i += codepointByteCount;   // Move text bytes counter to next codepoint
+    }
+    lastMaxOffsetX = textOffsetX * 0.55f;
+
+    
+    EndDrawing();
+}
+
+/**
+ * @brief Restart game.
+ *
+ */
+void game_restart(void){
+
+    int w = GetScreenWidth();
+    int h = GetScreenHeight();
+    ball.x = w * 0.5f - paddle_dims.x;
+    ball.y = h * 0.5f - paddle_dims.x;
+    ball.w = paddle_dims.x;
+	ball.h = paddle_dims.x;
+    ball.dx = -1 * 4;
+	ball.dy = -1 + GetRandomValue(0,1) * 4;
+	
+	paddle[0].x = 0;
+	paddle[0].y = h * 0.5f - paddle_dims.y;
+	paddle[0].w = paddle_dims.x;
+	paddle[0].h = paddle_dims.y;
+
+	paddle[1].x = w - paddle_dims.x;
+	paddle[1].y = h * 0.5f - paddle_dims.y;
+	paddle[1].w = paddle_dims.x;
+	paddle[1].h = paddle_dims.y;
+
+}
+
+/**
+ * @brief Move paddle.
+ *
+ * @param move Player move: IDLE, UP, DOWN, LEFT, or RIGHT.
+ *
+ */
+void game_apply_move( uint8_t move){
+    
+}
+
+/**
+ * @brief Check if the game ended (i.e., player on end).
+ *
+ * @return true
+ * @return false
+ */
+bool game_is_ended(void){
+
+    return 1;
+}
+
+/**
+ * @brief Get 8-bit state representation from game instance.
+ *
+ * @return uint16_t
+ */
+uint16_t game_get_state(void){
+    return 1;
+}
+
+/**
+ * @brief Get reward for making last move.
+ *
+ * @return int16_t
+ */
+int16_t game_get_reward(void){
+    return 1;
+}
