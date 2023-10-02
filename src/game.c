@@ -21,7 +21,7 @@ typedef struct paddle {
 } paddle_t;
 
 static ball_t ball;
-#define MAX_BALL_SPEED 50
+#define MAX_BALL_SPEED 60
 const int ball_max_speed = MAX_BALL_SPEED;
 const float paddle_speed = MAX_BALL_SPEED * 5;
 static paddle_t paddle[2];
@@ -162,6 +162,15 @@ void move_ball(float dt) {
 	}
 }
 
+void move_paddle(int dir,int paddle_id){
+	paddle[paddle_id].y += dir * paddle_speed * GetFrameTime();
+    if(paddle[paddle_id].y > GetScreenHeight() - paddle[paddle_id].h){
+        paddle[paddle_id].y = GetScreenHeight() - paddle[paddle_id].h;
+    }
+    if(paddle[paddle_id].y < 0){
+        paddle[paddle_id].y = 0;
+    }
+}
 void move_paddle_ai(float dt, int paddle_id) {
 
 	int center = paddle[paddle_id].y + paddle[paddle_id].h * 0.5f;
@@ -176,20 +185,14 @@ void move_paddle_ai(float dt, int paddle_id) {
     if(dir > 0 && paddle[paddle_id].y > ball.y){
         dir = -r_dir;
     }
-
-    paddle[paddle_id].y += dir * paddle_speed * dt;
-    if(paddle[paddle_id].y > GetScreenHeight() - paddle[paddle_id].h){
-        paddle[paddle_id].y = GetScreenHeight() - paddle[paddle_id].h;
-    }
-    if(paddle[paddle_id].y < 0){
-        paddle[paddle_id].y = 0;
-    }
+	move_paddle(dir,paddle_id);
 }
 
 
 void game_init(void){
     
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+	SetTargetFPS(360);
     InitWindow(factor*16, factor*9, "Pong");
     game_restart();
 
@@ -201,11 +204,25 @@ void game_deinit(void){
 static size_t gridsize = 64; 
 static double lastTime = 0.0;
 #define NUM_GRID_SQUARES 8
+static int isPlayer = 0;
 void game_draw(void){
 
     float dt = GetTime() - lastTime;
     lastTime = GetTime();
-    move_paddle_ai(dt,0);
+	if(IsKeyReleased(KEY_P)){
+		isPlayer = !isPlayer;
+	}
+	if(isPlayer){
+		if(IsKeyDown(KEY_UP)){
+			move_paddle(-1,0);
+		}
+		if(IsKeyDown(KEY_DOWN)){
+			move_paddle(1,0);
+		}
+	}
+	else {
+		move_paddle_ai(dt,0);
+	}
     move_paddle_ai(dt,1);
     move_ball(dt);
 
@@ -217,37 +234,21 @@ void game_draw(void){
         DrawRectangle(paddle[i].x,paddle[i].y,paddle[i].w,paddle[i].h,GetColor(0xFFFFFFFF));
     }
 
+	// Draw lines
+	float ww = 5;
+	Rectangle rect = {w * 0.5f - ww * 0.5f,paddle_dims.y * 0.25f,ww,paddle_dims.y - paddle_dims.y * 0.3f};
+	for(int i = 0;rect.y < h;rect.y = i * (rect.height * 2)){
+		DrawRectangleRec(rect,WHITE);
+		++i;
+	}
+
     DrawRectangle(ball.x,ball.y,ball.w,ball.h,GetColor(0xFFFFFFFF));
-    char s_text[256] = {0};
-    int size = snprintf(s_text,256,"Score: AI %d || Player %d",score[0],score[1]);
+    char s_text[64] = {0};
+    snprintf(s_text,64,"%d",score[0]);
     int fontSize = 24;
-    static float lastMaxOffsetX = 0.0f;
-    DrawText(s_text,w* 0.5f - lastMaxOffsetX,0,fontSize,GetColor(0xFF0000FF));
-    snprintf(s_text,256,"Motion: x %.2f y %0.2f DeltaTime: %f",ball.dx * ball_max_speed * dt,ball.dy * ball_max_speed * dt,dt);
-    DrawText(s_text,0,100,fontSize,GetColor(0xFF0000FF));
-
-    //Calculate text pos to have it centered
-    Font font = GetFontDefault();  
-    float textOffsetX = 0.0f;
-    float scaleFactor = fontSize/font.baseSize;
-    int defaultFontSize = 10;
-    int spacing = fontSize/defaultFontSize;
-    for (int i = 0; i < size;){
-        int codepointByteCount = 0;
-        int codepoint = GetCodepointNext(&s_text[i], &codepointByteCount);
-        int index = GetGlyphIndex(font, codepoint);
-        if (codepoint == 0x3f) codepointByteCount = 1;
-        if (codepoint == '\n'){
-            break;
-        }
-        else{
-            if (font.glyphs[index].advanceX == 0) textOffsetX += ((float)font.recs[index].width*scaleFactor + spacing);
-            else textOffsetX += ((float)font.glyphs[index].advanceX*scaleFactor + spacing);
-        }
-        i += codepointByteCount;   // Move text bytes counter to next codepoint
-    }
-    lastMaxOffsetX = textOffsetX * 0.55f;
-
+    DrawText(s_text,w* 0.5f - 50,0,fontSize,GetColor(0xFF0000FF));
+	snprintf(s_text,64,"%d",score[1]);
+	DrawText(s_text,w* 0.5f + 50 - ww*2,0,fontSize,GetColor(0xFF0000FF));
     
     EndDrawing();
 }
