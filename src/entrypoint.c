@@ -4,6 +4,7 @@
 
 #include <raylib.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
@@ -71,11 +72,11 @@ typedef struct qtable_conf
 typedef struct qlearn_conf
 {
     void *game;
-    void (*restart)(void *);
-    bool (*is_ended)(void *);
-    void (*apply_action)(void *, uint8_t);
-    state_t (*get_state)(void *);
-    reward_t (*get_reward)(void *);
+    void (*restart)(void);
+    bool (*is_ended)(void );
+    void (*apply_action)( uint8_t);
+    state_t (*get_state)(void);
+    reward_t (*get_reward)(void);
     qtable_conf_t *params;
 } qlearn_conf_t;
 
