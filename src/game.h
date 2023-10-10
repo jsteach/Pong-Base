@@ -30,6 +30,8 @@ void game_deinit(void);
  */
 void game_restart(void);
 
+void game_draw(void);
+
 /**
  * @brief Move snake.
  *
